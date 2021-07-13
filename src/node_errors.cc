@@ -5,7 +5,7 @@
 #include "node_errors.h"
 #include "node_external_reference.h"
 #include "node_internals.h"
-#include "node_process.h"
+#include "node_process-inl.h"
 #include "node_report.h"
 #include "node_v8_platform-inl.h"
 #include "util-inl.h"
@@ -98,8 +98,8 @@ static std::string GetErrorSource(Isolate* isolate,
   const char* filename_string = *filename;
   int linenum = message->GetLineNumber(context).FromJust();
 
-  int script_start = (linenum - origin.ResourceLineOffset()->Value()) == 1
-                         ? origin.ResourceColumnOffset()->Value()
+  int script_start = (linenum - origin.LineOffset()) == 1
+                         ? origin.ColumnOffset()
                          : 0;
   int start = message->GetStartColumn(context).FromMaybe(0);
   int end = message->GetEndColumn(context).FromMaybe(0);
@@ -425,7 +425,10 @@ void OnFatalError(const char* location, const char* message) {
   }
 
   Isolate* isolate = Isolate::GetCurrent();
-  Environment* env = Environment::GetCurrent(isolate);
+  Environment* env = nullptr;
+  if (isolate != nullptr) {
+    env = Environment::GetCurrent(isolate);
+  }
   bool report_on_fatalerror;
   {
     Mutex::ScopedLock lock(node::per_process::cli_options_mutex);

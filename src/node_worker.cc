@@ -1,5 +1,6 @@
 #include "node_worker.h"
 #include "debug_utils-inl.h"
+#include "histogram-inl.h"
 #include "memory_tracker-inl.h"
 #include "node_errors.h"
 #include "node_external_reference.h"
@@ -149,9 +150,7 @@ class WorkerThreadData {
 
     Isolate* isolate = Isolate::Allocate();
     if (isolate == nullptr) {
-      // TODO(addaleax): This should be ERR_WORKER_INIT_FAILED,
-      // ERR_WORKER_OUT_OF_MEMORY is for reaching the per-Worker heap limit.
-      w->Exit(1, "ERR_WORKER_OUT_OF_MEMORY", "Failed to create new Isolate");
+      w->Exit(1, "ERR_WORKER_INIT_FAILED", "Failed to create new Isolate");
       return;
     }
 
@@ -297,9 +296,7 @@ void Worker::Run() {
         TryCatch try_catch(isolate_);
         context = NewContext(isolate_);
         if (context.IsEmpty()) {
-          // TODO(addaleax): This should be ERR_WORKER_INIT_FAILED,
-          // ERR_WORKER_OUT_OF_MEMORY is for reaching the per-Worker heap limit.
-          Exit(1, "ERR_WORKER_OUT_OF_MEMORY", "Failed to create new Context");
+          Exit(1, "ERR_WORKER_INIT_FAILED", "Failed to create new Context");
           return;
         }
       }
@@ -789,7 +786,8 @@ void GetEnvMessagePort(const FunctionCallbackInfo<Value>& args) {
   Local<Object> port = env->message_port();
   CHECK_IMPLIES(!env->is_main_thread(), !port.IsEmpty());
   if (!port.IsEmpty()) {
-    CHECK_EQ(port->CreationContext()->GetIsolate(), args.GetIsolate());
+    CHECK_EQ(port->GetCreationContext().ToLocalChecked()->GetIsolate(),
+             args.GetIsolate());
     args.GetReturnValue().Set(port);
   }
 }
